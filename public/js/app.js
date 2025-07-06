@@ -1,6 +1,6 @@
 // Helper fetch JSON
 const API = (url, opts = {}) =>
-	fetch('http://localhost:3000' + url, {
+	fetch('https://glucosync-8ry3.onrender.com' + url, {
 		...opts,
 		headers: { 'Content-Type': 'application/json' },
 	}).then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)));
