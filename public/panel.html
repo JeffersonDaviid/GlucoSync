@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel Gluco Sync</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="/socket.io/socket.io.js"></script>
+  <script defer src="js/panel.js"></script>
+  <style>
+    .feedback-message {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Animaciones para el modal */
+    .modal-enter {
+      animation: modalEnter 0.3s ease-out;
+    }
+
+    @keyframes modalEnter {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* Estilos para notificaciones */
+    .notification-show {
+      transform: translateX(0) !important;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100">
+  <div class="container mx-auto sm:max-w-lg md:max-w-4xl">
+    <div class="bg-white md:rounded-lg md:shadow-lg p-6">
+      <header class="mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Panel de Control - Usuarios Activos</h1>
+            <p class="text-sm text-gray-500">Monitoreo y control en tiempo real de la actividad de los usuarios.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button id="btn-clear-all"
+              class="flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                </path>
+              </svg>
+              Limpiar Todo
+            </button>
+            <button id="btn-refresh"
+              class="flex items-center justify-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                </path>
+              </svg>
+              Actualizar
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="mb-6">
+        <div id="lista" class="space-y-4">
+          <!-- Aquí se agregarán los usuarios activos dinámicamente -->
+        </div>
+        <div id="no-users" class="text-center py-8 text-gray-500">
+          <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+            </path>
+          </svg>
+          <p>No hay usuarios activos en este momento</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para limpiar todo -->
+  <div id="modal-confirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-lg max-w-md w-full p-6">
+      <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z">
+          </path>
+        </svg>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 text-center mb-2">¿Estás seguro?</h3>
+      <p class="text-sm text-gray-500 text-center mb-6">
+        Esta acción eliminará permanentemente:
+      </p>
+      <ul class="text-sm text-gray-600 mb-6 space-y-1">
+        <li>• Todos los registros de glucosa</li>
+        <li>• Datos de usuarios registrados</li>
+        <li>• Conexiones activas</li>
+        <li>• Historial de mediciones</li>
+      </ul>
+      <p class="text-sm text-red-600 text-center mb-6 font-medium">
+        Esta acción no se puede deshacer.
+      </p>
+      <div class="flex gap-3">
+        <button id="modal-cancel"
+          class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+          Cancelar
+        </button>
+        <button id="modal-confirm-btn"
+          class="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors">
+          Sí, limpiar todo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notificación de éxito/error -->
+  <div id="notification"
+    class="fixed top-4 right-4 z-50 max-w-sm w-full transform translate-x-full transition-transform duration-300">
+    <div class="bg-white rounded-lg shadow-lg border-l-4 p-4 flex items-start gap-3">
+      <div id="notification-icon" class="flex-shrink-0 w-6 h-6 mt-0.5">
+        <!-- Icono se cambia dinámicamente -->
+      </div>
+      <div class="flex-1">
+        <h4 id="notification-title" class="font-medium text-gray-900"></h4>
+        <p id="notification-message" class="text-sm text-gray-600 mt-1"></p>
+      </div>
+      <button id="notification-close" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</body>
+
+</html>

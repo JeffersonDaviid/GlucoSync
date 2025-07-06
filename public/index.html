@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gluco Sync</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="/socket.io/socket.io.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+
+<body class="h-screen flex flex-col bg-gray-50">
+
+  <!-- Overlay mensajes Sync / Medición -->
+  <div id="overlay"
+    class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white text-lg space-y-4 z-50">
+    <div id="ov-text">...</div>
+    <span class="loader -z-10"></span>
+  </div>
+
+  <!-- Componente de notificación -->
+  <div id="notification"
+    class="fixed top-4 right-0 z-50 max-w-sm w-full transform translate-x-full transition-transform duration-300">
+    <div class="bg-white rounded-lg shadow-lg border-l-4 p-4 flex items-start gap-3">
+      <div id="notification-icon" class="flex-shrink-0 w-6 h-6 mt-0.5">
+        <!-- Icono se cambia dinámicamente -->
+      </div>
+      <div class="flex-1">
+        <h4 id="notification-title" class="font-medium text-gray-900"></h4>
+        <p id="notification-message" class="text-sm text-gray-600 mt-1"></p>
+      </div>
+      <button id="notification-close" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Pantallas SPA ===== -->
+  <!-- Landing -->
+  <section id="landing" class="flex-1 flex flex-col items-center justify-center gap-12 px-6">
+    <h1 class="text-4xl font-bold text-cyan-600 flex justify-center items-center gap-2">
+      <img src="assets/logo.png" width="150" height="150" class="rounded-full" alt="Logo GlucoSync">
+      <p width="auto">
+        GLUCO</br> SYNC
+      </p>
+    </h1>
+    <strong class="text-center pt-10">Glucosa, comidas y pasos en automático para tu bienestar.</strong>
+    <div class="flex flex-col gap-5 w-full max-w-sm">
+      <button data-route="register" class="bg-[#01b3d9] py-[10px] rounded-md">Registrarme</button>
+      <button data-route="login" class="border py-[10px] rounded-md border-[#01b3d9]">Iniciar sesión</button>
+    </div>
+    <p class="text-xs mt-4">Al crear una cuenta usted acepta nuestros términos y condiciones y está de
+      acuerdo con nuestras políticas de privacidad.*</p>
+  </section>
+
+  <!-- Registro -->
+  <section id="register" class="hidden flex-1 px-6 py-4 overflow-auto">
+    <a data-route="landing" class="text-cyan-600 mb-4 inline-block">&larr; Volver</a>
+    <h2 class="text-xl font-semibold mb-4">Registro</h2>
+
+    <!-- Indicador de progreso -->
+    <div class="mb-6">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm font-medium">Paso <span id="current-step">1</span> de 3</span>
+        <span class="text-sm text-gray-500"><span id="current-progress">33</span>%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div id="progress-bar" class="bg-cyan-600 h-2 rounded-full transition-all duration-300" style="width: 33%">
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 1: Credenciales -->
+    <div id="step-1" class="registration-step">
+      <h3 class="text-lg font-medium mb-4">Credenciales de acceso</h3>
+      <div class="flex flex-col gap-3">
+        <label for="reg-email" class="text-sm font-medium">Correo electrónico</label>
+        <input id="reg-email" type="email" placeholder="ejemplo@dominio.com"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-pass" class="text-sm font-medium">Contraseña</label>
+        <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-confirm-pass" class="text-sm font-medium">Confirmar contraseña</label>
+        <input id="reg-confirm-pass" type="password" placeholder="Confirma tu contraseña"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <button id="btn-step-1" class="mt-4 border py-[10px] rounded-md border-[#01b3d9]">Siguiente</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: Información personal -->
+    <div id="step-2" class="registration-step hidden">
+      <h3 class="text-lg font-medium mb-4">Información personal</h3>
+      <div class="flex flex-col gap-3">
+        <label for="reg-name" class="text-sm font-medium">Nombre completo</label>
+        <input id="reg-name" type="text" placeholder="Juan Pérez"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-dob" class="text-sm font-medium">Fecha de nacimiento</label>
+        <input id="reg-dob" type="date" class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-diabetes" class="text-sm font-medium">Tipo de diabetes</label>
+        <select id="reg-diabetes" class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+          <option value="" disabled selected>Seleccione el tipo de diabetes</option>
+          <option value="Tipo 1">Tipo 1</option>
+          <option value="Tipo 2">Tipo 2</option>
+          <option value="Gestacional">Gestacional</option>
+        </select>
+
+        <div class="flex gap-2 mt-4">
+          <button id="btn-back-1" class="border py-[10px] rounded-md border-[#01b3d9] flex-1">Atrás</button>
+          <button id="btn-step-2" class="border py-[10px] rounded-md border-[#01b3d9] flex-1">Siguiente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 3: Información médica -->
+    <div id="step-3" class="registration-step hidden">
+      <h3 class="text-lg font-medium mb-4">Información médica</h3>
+      <div class="flex flex-col gap-3">
+        <label for="reg-weight" class="text-sm font-medium">Peso (kg)</label>
+        <input id="reg-weight" type="number" step="0.1" placeholder="70.5"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-height" class="text-sm font-medium">Estatura (metros)</label>
+        <input id="reg-height" type="number" step="0.01" placeholder="1.70"
+          class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+        <label for="reg-glucose-frequency" class="text-sm font-medium">¿Cada cuánto se mide la glucosa?</label>
+        <select id="reg-glucose-frequency" class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm"
+          required>
+          <option value="" disabled selected>Seleccione la frecuencia</option>
+          <option value="Diario">Diario</option>
+          <option value="Cada 2 días">Cada 2 días</option>
+          <option value="Semanal">Semanal</option>
+          <option value="Quincenal">Quincenal</option>
+          <option value="Mensual">Mensual</option>
+        </select>
+
+        <label for="reg-exercise-frequency" class="text-sm font-medium">¿Cuántas veces hace ejercicio a la
+          semana?</label>
+        <select id="reg-exercise-frequency" class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm"
+          required>
+          <option value="" disabled selected>Seleccione la frecuencia</option>
+          <option value="Nunca">Nunca</option>
+          <option value="1-2 veces">1-2 veces</option>
+          <option value="3-4 veces">3-4 veces</option>
+          <option value="5-6 veces">5-6 veces</option>
+          <option value="Todos los días">Todos los días</option>
+        </select>
+
+        <div class="flex gap-2 mt-4">
+          <button id="btn-back-2" class="border py-[10px] rounded-md border-[#01b3d9] flex-1">Atrás</button>
+          <button id="btn-final" class="bg-[#01b3d9] py-[10px] rounded-md flex-1">Finalizar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Login -->
+  <section id="login" class="hidden flex-1 px-6 py-4">
+    <a data-route="landing" class="text-cyan-600 mb-4 inline-block">&larr; Volver</a>
+    <h2 class="text-xl font-semibold mb-4">Ingresar</h2>
+    <form id="form-login" class="flex flex-col gap-3">
+      <label for="login-email" class="text-sm font-medium">Correo electrónico</label>
+      <input id="login-email" name="email" type="email" placeholder="ejemplo@dominio.com"
+        class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+      <label for="login-pass" class="text-sm font-medium">Contraseña</label>
+      <input id="login-pass" name="pass" type="password" placeholder="Ingresa tu contraseña"
+        class="px-4 py-3 bg-white rounded-md border border-gray-300 text-sm" required>
+
+      <button class="bg-[#01b3d9] py-[10px] rounded-md flex-1 mt-4">Entrar</button>
+    </form>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="dash" class="hidden flex-1 px-6 py-4 overflow-auto pb-20">
+    <h2 class="text-center text-lg font-semibold mb-4">Resumen de niveles<br>de azúcar en sangre</h2>
+
+    <div class="grid grid-cols-2 gap-3 mb-4 text-center">
+      <div class="bg-white rounded-lg py-4 shadow">
+        <div id="avg" class="text-3xl font-bold">--</div><small>Media mg/dL</small>
+      </div>
+      <div class="bg-white rounded-lg py-4 shadow">
+        <div id="total" class="text-3xl font-bold">--</div><small>Lecturas totales</small>
+      </div>
+    </div>
+
+    <button id="btn-add" class="bg-[#01b3d9] py-[10px] rounded-md w-full mb-4">+ Agregar nuevo registro</button>
+
+    <h3 class="mb-2 font-medium">Últimos registros:</h3>
+    <ul id="list-measures" class="space-y-2"></ul>
+  </section>
+
+  <!-- Control -->
+  <section id="control" class="hidden flex-1 px-6 py-4 overflow-auto pb-20">
+    <h2 class="text-center text-lg font-semibold mb-4">Control de Glucosa</h2>
+    <div class="bg-white rounded-lg p-4 shadow mb-4">
+      <h3 class="font-medium mb-2">Estadísticas</h3>
+      <p class="text-sm text-gray-600">Aquí podrás ver gráficos y análisis detallados de tus niveles de glucosa.</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow">
+      <h3 class="font-medium mb-2">Configuración</h3>
+      <p class="text-sm text-gray-600">Ajusta tus rangos objetivo y alertas personalizadas.</p>
+    </div>
+  </section>
+
+  <!-- Recordatorios -->
+  <section id="recordatorios" class="hidden flex-1 px-6 py-4 overflow-auto pb-20">
+    <h2 class="text-center text-lg font-semibold mb-4">Recordatorios</h2>
+    <div class="bg-white rounded-lg p-4 shadow mb-4">
+      <h3 class="font-medium mb-2">Medicación</h3>
+      <p class="text-sm text-gray-600">Configura recordatorios para tus medicamentos.</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow mb-4">
+      <h3 class="font-medium mb-2">Mediciones</h3>
+      <p class="text-sm text-gray-600">Programa recordatorios para tomar mediciones de glucosa.</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow">
+      <h3 class="font-medium mb-2">Comidas</h3>
+      <p class="text-sm text-gray-600">Recordatorios para registrar tus comidas y snacks.</p>
+    </div>
+  </section>
+
+  <!-- Perfil -->
+  <section id="perfil" class="hidden flex-1 px-6 py-4 overflow-auto pb-20">
+    <h2 class="text-center text-lg font-semibold mb-4">Mi Perfil</h2>
+    <div class="bg-white rounded-lg p-4 shadow mb-4">
+      <h3 class="font-medium mb-2">Información Personal</h3>
+      <p class="text-sm text-gray-600">Actualiza tu información personal y configuración de cuenta.</p>
+    </div>
+    <div class="bg-white rounded-lg p-4 shadow mb-4">
+      <h3 class="font-medium mb-2">Configuración</h3>
+      <p class="text-sm text-gray-600">Personaliza la aplicación según tus preferencias.</p>
+    </div>
+    <button class="bg-[#01b3d9] py-[10px] rounded-md w-full" id="btn-logout">Cerrar sesión</button>
+  </section>
+
+  <!-- Modal Registro manual -->
+  <div id="modal-manual" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-40">
+    <form id="form-measure" class="bg-white rounded-lg p-6 w-11/12 max-w-sm space-y-4">
+      <h3 class="text-center font-semibold">Nuevo registro</h3>
+      <input id="valorGlu" type="number" step="0.1" placeholder="Valor mg/dL" class="input w-full" required>
+      <div class="flex gap-2">
+        <button type="button" id="cancel" class="border py-[10px] rounded-md border-[#01b3d9] flex-1">Cancelar</button>
+        <button class="bg-[#01b3d9] py-[10px] rounded-md flex-1">Guardar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Barra inferior -->
+  <nav id="bottom-nav"
+    class="fixed bottom-0 left-0 right-0 bg-cyan-100 flex justify-around py-2 text-xs font-medium hidden">
+    <a class="nav-item active cursor-pointer select-none" data-route="dash">
+      <svg xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;" class="w-6 mx-auto bg-[#01b3d9] rounded"
+        viewBox="0 0 24 24" stroke="currentColor" fill="none">
+        <path d="M3 11l9-9 9 9v9a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4H9v4a2 2 0 01-2 2H3z" stroke-width="2" />
+      </svg>
+      Inicio
+    </a>
+    <a class="nav-item cursor-pointer select-none" data-route="control">
+      <svg xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;" class="w-6 mx-auto" viewBox="0 0 24 24"
+        stroke="currentColor" fill="none">
+        <path
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          stroke-width="2" />
+      </svg>
+      Control
+    </a>
+    <a class="nav-item cursor-pointer select-none" data-route="recordatorios">
+      <svg xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;" class="w-6 mx-auto" viewBox="0 0 24 24"
+        stroke="currentColor" fill="none">
+        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2" />
+      </svg>
+      Recordatorios
+    </a>
+    <a class="nav-item cursor-pointer select-none" data-route="perfil">
+      <svg xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;" class="w-6 mx-auto" viewBox="0 0 24 24"
+        stroke="currentColor" fill="none">
+        <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-width="2" />
+      </svg>
+      Perfil
+    </a>
+  </nav>
+
+  <!-- ===== Utilidades Tailwind reutilizables ===== -->
+  <style>
+    .input {
+      @apply px-3 py-2 bg-white rounded-md border border-gray-300 text-sm;
+    }
+
+    .btn-primary {
+      @apply bg-cyan-600 text-white px-4 py-2 rounded-md text-center;
+    }
+
+    .btn-outline {
+      @apply border border-cyan-600 text-cyan-600 px-4 py-2 rounded-md text-center;
+    }
+
+    .nav-item.active {
+      @apply text-cyan-600;
+    }
+
+    .registration-step {
+      transition: opacity 0.3s ease-in-out;
+    }
+
+    .registration-step.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .notification-show {
+      transform: translateX(0) !important;
+    }
+
+    .notification-error {
+      border-left-color: #ef4444;
+    }
+
+    .notification-success {
+      border-left-color: #10b981;
+    }
+
+    .notification-warning {
+      border-left-color: #f59e0b;
+    }
+
+    .notification-info {
+      border-left-color: #3b82f6;
+    }
+
+    .loader {
+      transform: rotateZ(45deg);
+      perspective: 1000px;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      color: #fff;
+    }
+
+    .loader:before,
+    .loader:after {
+      content: '';
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: inherit;
+      height: inherit;
+      border-radius: 50%;
+      transform: rotateX(70deg);
+      animation: 1s spin linear infinite;
+    }
+
+    .loader:after {
+      color: #01b3d9;
+      transform: rotateY(70deg);
+      animation-delay: .4s;
+    }
+
+    @keyframes rotate {
+      0% {
+        transform: translate(-50%, -50%) rotateZ(0deg);
+      }
+
+      100% {
+        transform: translate(-50%, -50%) rotateZ(360deg);
+      }
+    }
+
+    @keyframes rotateccw {
+      0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+      }
+
+      100% {
+        transform: translate(-50%, -50%) rotate(-360deg);
+      }
+    }
+
+    @keyframes spin {
+
+      0%,
+      100% {
+        box-shadow: .2em 0px 0 0px currentcolor;
+      }
+
+      12% {
+        box-shadow: .2em .2em 0 0 currentcolor;
+      }
+
+      25% {
+        box-shadow: 0 .2em 0 0px currentcolor;
+      }
+
+      37% {
+        box-shadow: -.2em .2em 0 0 currentcolor;
+      }
+
+      50% {
+        box-shadow: -.2em 0 0 0 currentcolor;
+      }
+
+      62% {
+        box-shadow: -.2em -.2em 0 0 currentcolor;
+      }
+
+      75% {
+        box-shadow: 0px -.2em 0 0 currentcolor;
+      }
+
+      87% {
+        box-shadow: .2em -.2em 0 0 currentcolor;
+      }
+    }
+  </style>
+</body>
+
+</html>
